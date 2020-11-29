@@ -48,6 +48,10 @@ pub enum Error {
     SenderSameAsReceiver = 4,
     /// Approver doesn't exist.
     ApproverNotFound = 5,
+    /// Sender are same as approver.
+    SenderSameAsApprover = 6,
+    /// Receiver are same as approver.
+    ApproverSameAsReceiver = 7,
 }
 
 /// Transfer `amount` of the currency from one wallet to another.
@@ -189,8 +193,15 @@ impl CryptocurrencyInterface<ExecutionContext<'_>> for CryptocurrencyService {
 
         let to = arg.to;
         let amount = arg.amount;
+        let appr = arg.approver;
         if from == to {
             return Err(Error::SenderSameAsReceiver.into());
+        }
+        if from == appr {
+            return Err(Error::SenderSameAsApprover.into());
+        }
+        if to == appr {
+            return Err(Error::ApproverSameAsReceiver.into());
         }
 
         let sender = schema.wallet(from).ok_or(Error::SenderNotFound)?;
@@ -201,7 +212,7 @@ impl CryptocurrencyInterface<ExecutionContext<'_>> for CryptocurrencyService {
 
         let approver = schema.wallet(arg.approver).ok_or(Error::ApproverNotFound)?;
 
-        schema.increase_freezed_wallet_balance(receiver, amount, tx_hash);
+        schema.increase_freezed_wallet_balance(sender, amount, tx_hash);
         Ok(())
     }
 }
