@@ -23,7 +23,7 @@ extern crate serde_derive; // Required for Protobuf.
 pub use crate::{schema::Schema, transactions::CryptocurrencyInterface};
 
 pub mod api;
-pub mod migrations;
+//pub mod migrations;
 pub mod proto;
 pub mod schema;
 pub mod transactions;

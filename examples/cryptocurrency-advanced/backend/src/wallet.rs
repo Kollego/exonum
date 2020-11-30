@@ -82,4 +82,16 @@ impl Wallet {
             history_hash,
         )
     }
+
+    /// Returns a copy of this wallet with updated balance.
+    pub fn set_freezed_and_ord_balance(self, freezed_balance: u64, balance: u64, history_hash: &Hash) -> Self {
+        Self::new(
+            self.owner,
+            &self.name,
+            balance,
+            freezed_balance,
+            self.history_len + 1,
+            history_hash,
+        )
+    }
 }
