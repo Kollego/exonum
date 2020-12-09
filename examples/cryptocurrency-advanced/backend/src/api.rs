@@ -109,11 +109,62 @@ impl PublicApi {
             wallet_history,
         })
     }
+        //Заапрувленные транзакции - endpoint
+        pub async fn wallet_info_approve(
+            state: ServiceApiState,
+            query: WalletQuery,
+        ) -> api::Result<WalletInfo> {
+            let IndexProof {
+                block_proof,
+                index_proof,
+                ..
+            } = state.data().proof_for_service_index("wallets").unwrap();
+    
+            let currency_schema = SchemaImpl::new(state.service_data());
+            let address = Address::from_key(query.pub_key);
+            let to_wallet = currency_schema.public.wallets.get_proof(address);
+            let wallet_proof = WalletProof {
+                to_table: index_proof,
+                to_wallet,
+            };
+            let wallet = currency_schema.public.wallets.get(&address);
+    
+            let wallet_history = wallet.map(|_| {
+                // `history` is always present for existing wallets.
+                let history = currency_schema.wallet_history_approve.get(&address);
+                let proof = history.get_range_proof(..);
+    
+                let transactions = state.data().for_core().transactions();
+                let transactions = history
+                    .iter()
+                    .map(|tx_hash| transactions.get(&tx_hash).unwrap())
+                    .collect();
+    
+                WalletHistory {
+                    proof,
+                    transactions,
+                }
+            });
+    
+            Ok(WalletInfo {
+                block_proof,
+                wallet_proof,
+                wallet_history,
+            })
+        }
 
     /// Wires the above endpoint to public scope of the given `ServiceApiBuilder`.
     pub fn wire(builder: &mut ServiceApiBuilder) {
         builder
             .public_scope()
             .endpoint("v1/wallets/info", Self::wallet_info);
+    }
+
+
+      /// Отдает истории с подтверждением
+      pub fn wire_approve(builder: &mut ServiceApiBuilder) {
+        builder
+            .public_scope()
+            .endpoint("v1/wallets/info_approve", Self::wallet_info_approve);
     }
 }

@@ -36,6 +36,10 @@ pub(crate) struct SchemaImpl<T: Access> {
     pub public: Schema<T>,
     /// History for specific wallets.
     pub wallet_history: Group<T, Address, ProofListIndex<T::Base, Hash>>,
+
+    // История подтвержденных транзакций
+    pub wallet_history_approve: Group<T, Address, ProofListIndex<T::Base, Hash>>,
+
 }
 
 /// Public part of the cryptocurrency schema.
@@ -91,10 +95,10 @@ where
         let wallet = Wallet::new(key, name, INITIAL_BALANCE, 0, history.len(), &history_hash);
         self.public.wallets.put(&key, wallet);
     }
-
+    /// Подразумевается, что методами будут пользоваться при механизме аппрува, которые за рамками нашего задания.
     /// Increases balance of the wallet and append new record to its history.
     pub fn increase_freezed_wallet_balance(&mut self, wallet: Wallet, amount: u64, transaction: Hash) {
-        let mut history = self.wallet_history.get(&wallet.owner);
+        let mut history = self.wallet_history_approve.get(&wallet.owner);
         history.push(transaction);
         let history_hash = history.object_hash();
         let freezed_balance = wallet.freezed_balance;
@@ -105,12 +109,23 @@ where
 
     /// Increases balance of the wallet and append new record to its history.
     pub fn freeing_freezed_wallet_balance(&mut self, wallet: Wallet, amount: u64, transaction: Hash) {
-        let mut history = self.wallet_history.get(&wallet.owner);
+        let mut history = self.wallet_history_approve.get(&wallet.owner);
         history.push(transaction);
         let history_hash = history.object_hash();
         let freezed_balance = wallet.freezed_balance;
         let balance = wallet.balance;
         let wallet = wallet.set_freezed_and_ord_balance(freezed_balance - amount, balance - amount, &history_hash);
+        let wallet_key = wallet.owner;
+        self.public.wallets.put(&wallet_key, wallet);
+    }
+
+    /// Увелечение счета с записью в подтвержденные транзакции
+    pub fn increase_wallet_balance_approve(&mut self, wallet: Wallet, amount: u64, transaction: Hash) {
+        let mut history = self.wallet_history_approve.get(&wallet.owner);
+        history.push(transaction);
+        let history_hash = history.object_hash();
+        let balance = wallet.balance;
+        let wallet = wallet.set_balance(balance + amount, &history_hash);
         let wallet_key = wallet.owner;
         self.public.wallets.put(&wallet_key, wallet);
     }

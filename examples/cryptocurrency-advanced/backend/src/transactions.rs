@@ -208,12 +208,17 @@ impl CryptocurrencyInterface<ExecutionContext<'_>> for CryptocurrencyService {
     }
 
     fn create_transfer_with_approve(&self,  context: ExecutionContext<'_>, arg: CreateTransferApprove) -> Self::Output {
+        // получаем данные о транзакции 
         let (from, tx_hash) = extract_info(&context)?;
+        // "что-то типо бд"
         let mut schema = SchemaImpl::new(context.service_data());
 
         let to = arg.to;
         let amount = arg.amount;
+        // аппрувер
         let appr = arg.approver;
+
+        // проверка, что sender != receiver 
         if from == to {
             return Err(Error::SenderSameAsReceiver.into());
         }
@@ -226,16 +231,20 @@ impl CryptocurrencyInterface<ExecutionContext<'_>> for CryptocurrencyService {
 
         let sender = schema.wallet(from).ok_or(Error::SenderNotFound)?;
         let receiver = schema.wallet(arg.to).ok_or(Error::ReceiverNotFound)?;
+
+        // проверка того, что достаточно средств
         if (sender.balance - sender.freezed_balance) < amount {
             return Err(Error::InsufficientCurrencyAmount.into());
         }
 
         let approver = schema.wallet(arg.approver).ok_or(Error::ApproverNotFound)?;
 
+        //зарезервировали  доп. средства
         schema.increase_freezed_wallet_balance(sender, amount, tx_hash);
         Ok(())
     }
 
+    // Сбор средств после аппрува
     fn finish_transfer_with_approve(&self,  context: ExecutionContext<'_>, arg: FinishTransferApprove) -> Self::Output {
         let (from, tx_hash) = extract_info(&context)?;
         let mut schema = SchemaImpl::new(context.service_data());
@@ -263,7 +272,7 @@ impl CryptocurrencyInterface<ExecutionContext<'_>> for CryptocurrencyService {
             return Err(Error::InsufficientCurrencyAmount.into());
         }
         schema.freeing_freezed_wallet_balance(sender, amount, tx_hash);
-        schema.increase_wallet_balance(receiver, amount, tx_hash);
+        schema.increase_wallet_balance_approve(receiver, amount, tx_hash);
         Ok(())
 
     }
